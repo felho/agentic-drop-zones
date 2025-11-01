@@ -22,7 +22,7 @@ Integrated Rich library for beautiful console output:
 - Clean, segmented display of streaming responses
 
 ### MCP Server Integration Support
-Added support for Model Context Protocol (MCP) servers through the `mcp_server_file` field in drop zone configuration. This allows integration with external tools and services. The file path is passed directly to ClaudeCodeOptions, which handles loading the configuration.
+Added support for Model Context Protocol (MCP) servers through the `mcp_server_file` field in drop zone configuration. This allows integration with external tools and services. The file path is passed directly to ClaudeAgentOptions, which handles loading the configuration.
 
 ### PromptArgs Type System
 Introduced a structured `PromptArgs` Pydantic model to manage prompt-related arguments cleanly:
@@ -49,7 +49,7 @@ drop_zones:
 ```
 
 ### MCP Server File Format
-MCP server files can be in JSON or YAML format. The ClaudeCodeOptions class handles loading these files automatically:
+MCP server files can be in JSON or YAML format. The ClaudeAgentOptions class handles loading these files automatically:
 
 ```json
 {
@@ -62,8 +62,8 @@ MCP server files can be in JSON or YAML format. The ClaudeCodeOptions class hand
 ```
 
 ### Implementation Notes
-- The `mcp_server_file` path is passed directly to `ClaudeCodeOptions` as the `mcp_servers` parameter
-- ClaudeCodeOptions natively supports file paths (`dict | str | Path`) for MCP configurations
+- The `mcp_server_file` path is passed directly to `ClaudeAgentOptions` as the `mcp_servers` parameter
+- ClaudeAgentOptions natively supports file paths (`dict | str | Path`) for MCP configurations
 - No manual file parsing is required - the SDK handles JSON/YAML loading internally
 
 ### Visual Output Features

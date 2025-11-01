@@ -96,9 +96,9 @@ drop_zones:
 The system supports multiple AI agents with different capabilities:
 
 ### Claude Code (Most Capable)
-- 
+-
 - **Status**: ✅ Fully implemented
-- **SDK**: Native Python, Typescript, and CLI SDK with streaming support
+- **SDK**: Native Python, Typescript, and CLI SDK with streaming support (Claude Agent SDK)
 - **Output**: Clean, formatted panels with real-time streaming
 - **Models**: `sonnet`, `opus`, `haiku`
 - **MCP Support**: Full MCP tool integration
@@ -136,15 +136,16 @@ See `drops.yaml` for agent setup:
   model: "gemini-2.5-pro"
 ```
 
-## Claude Code SDK Integration
+## Claude Agent SDK Integration
 
 Uses `ClaudeSDKClient` with streaming responses:
 
 ```python
-async with ClaudeSDKClient(options=ClaudeCodeOptions(
+async with ClaudeSDKClient(options=ClaudeAgentOptions(
     permission_mode="bypassPermissions",
     model="sonnet",
-    mcp_servers=".mcp.json"  # Optional MCP tools
+    mcp_servers=".mcp.json",  # Optional MCP tools
+    system_prompt={"type": "preset", "preset": "claude_code"}  # Backward compatibility
 )) as client:
     await client.query(prompt)
     async for message in client.receive_response():

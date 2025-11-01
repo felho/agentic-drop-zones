@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "claude-code-sdk",
+#     "claude-agent-sdk",
 #     "pydantic",
 #     "watchdog",
 #     "pyyaml",
@@ -36,7 +36,7 @@ from watchdog.events import (
     EVENT_TYPE_DELETED,
     EVENT_TYPE_MOVED,
 )
-from claude_code_sdk import ClaudeSDKClient, ClaudeCodeOptions
+from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
 
 # Load environment variables
 load_dotenv()
@@ -49,7 +49,7 @@ FILE_PATH_PLACEHOLDER = "[[FILE_PATH]]"
 def check_environment_variables():
     """Check for required environment variables at startup."""
     required_vars = {
-        "ANTHROPIC_API_KEY": "Required for Claude Code SDK authentication",
+        "ANTHROPIC_API_KEY": "Required for Claude Agent SDK authentication",
         "CLAUDE_CODE_PATH": "Required path to Claude CLI executable",
     }
 
@@ -235,11 +235,11 @@ class Agents:
 
     @staticmethod
     async def prompt_claude_code(args: PromptArgs) -> None:
-        """Process a file using Claude Code SDK."""
+        """Process a file using Claude Agent SDK."""
         # Build full prompt using the build_prompt method
         full_prompt = Agents.build_prompt(args.reusable_prompt, args.file_path)
 
-        console.print(f"[cyan]ℹ️  Processing prompt with Claude Code...[/cyan]")
+        console.print(f"[cyan]ℹ️  Processing prompt with Claude Agent...[/cyan]")
         if args.model:
             console.print(f"[dim]   Model: {args.model}[/dim]")
 
@@ -256,7 +256,8 @@ class Agents:
 
         # Create options with bypassPermissions mode and optional model
         options_dict = {
-            "permission_mode": "bypassPermissions"  # Bypass all permission prompts
+            "permission_mode": "bypassPermissions",  # Bypass all permission prompts
+            "system_prompt": {"type": "preset", "preset": "claude_code"}  # Maintain backward compatibility
         }
 
         # Add model if specified
@@ -270,9 +271,9 @@ class Agents:
             options_dict["mcp_servers"] = args.mcp_server_file
             console.print(f"[dim]   MCP config: {args.mcp_server_file}[/dim]")
 
-        options = ClaudeCodeOptions(**options_dict)
+        options = ClaudeAgentOptions(**options_dict)
 
-        # Minimal Claude Code setup - let errors propagate
+        # Minimal Claude Agent setup - let errors propagate
         async with ClaudeSDKClient(options=options) as client:
             await client.query(full_prompt)
 
