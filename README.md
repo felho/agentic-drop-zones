@@ -91,6 +91,74 @@ drop_zones:
     create_zone_dir_if_not_exists: true       # Auto-create directories
 ```
 
+## Permission Configuration
+
+Each drop zone can specify fine-grained permissions using `allowed_tools` and `permission_mode` for secure, non-interactive operation.
+
+### Basic Configuration
+
+```yaml
+drop_zones:
+  - name: "Echo Zone"
+    permission_mode: "default"  # Recommended (safer than bypassPermissions)
+    allowed_tools:              # Whitelist - required for non-interactive
+      - "Read"
+      - "Bash"
+    disallowed_tools:           # Optional blacklist
+      - "Task"
+      - "WebFetch"
+```
+
+### Available Tools
+
+**Core Tools:**
+- `Read` - Read files
+- `Write` - Create new files
+- `Edit` - Modify existing files
+- `Bash` - Run bash commands
+- `Glob` - Find files by pattern
+- `Grep` - Search file contents
+
+**Advanced Tools:**
+- `Task` - Spawn sub-agents
+- `WebFetch` - Fetch web content
+- `WebSearch` - Search the web
+- `TodoWrite` - Manage todo lists
+- `NotebookEdit` - Edit Jupyter notebooks
+
+**MCP Tools:**
+- `mcp__<server>__<tool>` - MCP server tools
+- Example: `mcp__replicate__create_models_predictions`
+
+### Security Levels
+
+🟢 **Low Risk** (read-only, analysis):
+```yaml
+permission_mode: "default"
+allowed_tools: ["Read"]
+```
+
+🟡 **Medium Risk** (file transformations):
+```yaml
+permission_mode: "default"
+allowed_tools: ["Read", "Write", "Bash"]
+disallowed_tools: ["Task", "WebFetch"]
+```
+
+🔴 **High Risk** (API integration, network):
+```yaml
+permission_mode: "default"
+allowed_tools: ["Read", "Write", "Bash", "mcp__replicate__*"]
+disallowed_tools: ["Task"]
+```
+
+### Permission Modes
+
+- **`default`** ✅ Recommended - Works with allowed_tools for non-interactive operation
+- **`acceptEdits`** ✅ Alternative - Also works with allowed_tools
+- **`bypassPermissions`** ⚠️ Legacy - Use only if needed, always add allowed_tools
+- **`plan`** ℹ️ Analysis only - No execution
+
 ## Agents
 
 The system supports multiple AI agents with different capabilities:

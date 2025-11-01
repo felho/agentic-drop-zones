@@ -21,6 +21,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Literal
 
+# Type alias for permission modes
+PermissionMode = Literal["default", "acceptEdits", "plan", "bypassPermissions"]
+
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, field_validator
 from rich.console import Console
@@ -127,6 +130,18 @@ class PromptArgs(BaseModel):
     mcp_server_file: Optional[str] = Field(
         default=None, description="Path to MCP server configuration file (JSON or YAML)"
     )
+
+    # Permission configuration
+    permission_mode: PermissionMode = Field(
+        default="default", description="Permission mode for agent operations"
+    )
+    allowed_tools: Optional[list[str]] = Field(
+        default=None, description="Whitelist of allowed tools (enables non-interactive operation)"
+    )
+    disallowed_tools: Optional[list[str]] = Field(
+        default=None, description="Blacklist of disallowed tools (extra protection)"
+    )
+
     zone_name: Optional[str] = Field(default=None, description="Name of the drop zone")
     zone_color: Optional[str] = Field(
         default="cyan", description="Color for the drop zone"
@@ -154,6 +169,21 @@ class DropZone(BaseModel):
         default="sonnet",
         description="Model to use for Claude Code (e.g., 'sonnet', 'opus', 'haiku')",
     )
+
+    # Permission configuration
+    permission_mode: PermissionMode = Field(
+        default="default",
+        description="Permission mode for agent operations"
+    )
+    allowed_tools: Optional[list[str]] = Field(
+        default=None,
+        description="Whitelist of allowed tools (enables non-interactive operation)"
+    )
+    disallowed_tools: Optional[list[str]] = Field(
+        default=None,
+        description="Blacklist of disallowed tools (extra protection)"
+    )
+
     mcp_server_file: Optional[str] = Field(
         default=None, description="Path to MCP server configuration file (JSON or YAML)"
     )
@@ -178,6 +208,26 @@ class DropZone(BaseModel):
     def validate_events(cls, v: list[EventType]) -> list[EventType]:
         if not v:
             raise ValueError("events must contain at least one event type")
+        return v
+
+    @field_validator("permission_mode")
+    @classmethod
+    def validate_permission_mode(cls, v: str) -> str:
+        """Validate and warn about permission modes."""
+        valid_modes = {"default", "acceptEdits", "plan", "bypassPermissions"}
+        if v not in valid_modes:
+            raise ValueError(
+                f"Invalid permission_mode: {v}. "
+                f"Must be one of: {', '.join(valid_modes)}"
+            )
+
+        # Warn if using bypassPermissions without allowed_tools
+        if v == "bypassPermissions":
+            logger.warning(
+                f"⚠️  Using 'bypassPermissions' - consider using 'default' "
+                f"with 'allowed_tools' for better security"
+            )
+
         return v
 
 
@@ -240,8 +290,19 @@ class Agents:
         full_prompt = Agents.build_prompt(args.reusable_prompt, args.file_path)
 
         console.print(f"[cyan]ℹ️  Processing prompt with Claude Agent...[/cyan]")
+
+        # Display configuration
         if args.model:
             console.print(f"[dim]   Model: {args.model}[/dim]")
+        if args.permission_mode:
+            console.print(f"[dim]   Permission: {args.permission_mode}[/dim]")
+        if args.allowed_tools:
+            tools_display = ', '.join(args.allowed_tools[:3])
+            if len(args.allowed_tools) > 3:
+                tools_display += f" (+{len(args.allowed_tools) - 3} more)"
+            console.print(f"[dim]   Allowed tools: {tools_display}[/dim]")
+        if args.disallowed_tools:
+            console.print(f"[dim]   Blocked tools: {', '.join(args.disallowed_tools)}[/dim]")
 
         # Get CLI path from environment or use default
         cli_path = os.getenv("CLAUDE_CODE_PATH", "claude")
@@ -254,9 +315,9 @@ class Agents:
             if cli_dir not in current_path:
                 os.environ["PATH"] = f"{cli_dir}:{current_path}"
 
-        # Create options with bypassPermissions mode and optional model
+        # Build options with configurable permissions
         options_dict = {
-            "permission_mode": "bypassPermissions",  # Bypass all permission prompts
+            "permission_mode": args.permission_mode,  # Configurable permission mode
             "system_prompt": {"type": "preset", "preset": "claude_code"}  # Maintain backward compatibility
         }
 
@@ -270,6 +331,13 @@ class Agents:
             # Claude SDK accepts file paths directly and will handle loading
             options_dict["mcp_servers"] = args.mcp_server_file
             console.print(f"[dim]   MCP config: {args.mcp_server_file}[/dim]")
+
+        # Add tool restrictions
+        if args.allowed_tools:
+            options_dict["allowed_tools"] = args.allowed_tools
+
+        if args.disallowed_tools:
+            options_dict["disallowed_tools"] = args.disallowed_tools
 
         options = ClaudeAgentOptions(**options_dict)
 
@@ -510,17 +578,31 @@ class DropZoneHandler(FileSystemEventHandler):
         console.print(f"[yellow]   File: {file_path}[/yellow]")
         console.print(f"[dim]   Agent: {self.drop_zone.agent}[/dim]")
         console.print(f"[dim]   Prompt: {self.drop_zone.reusable_prompt}[/dim]")
+
         if self.drop_zone.model:
             console.print(f"[dim]   Model: {self.drop_zone.model}[/dim]")
+
+        # Display permission configuration
+        if self.drop_zone.permission_mode:
+            console.print(f"[dim]   Permission: {self.drop_zone.permission_mode}[/dim]")
+        if self.drop_zone.allowed_tools:
+            tools_str = ', '.join(self.drop_zone.allowed_tools[:3])
+            if len(self.drop_zone.allowed_tools) > 3:
+                tools_str += f" (+{len(self.drop_zone.allowed_tools) - 3} more)"
+            console.print(f"[dim]   Allowed: {tools_str}[/dim]")
+
         if self.drop_zone.mcp_server_file:
             console.print(f"[dim]   MCP: {self.drop_zone.mcp_server_file}[/dim]")
 
-        # Create PromptArgs
+        # Create PromptArgs with permission configuration
         prompt_args = PromptArgs(
             reusable_prompt=self.drop_zone.reusable_prompt,
             file_path=file_path,
             model=self.drop_zone.model,
             mcp_server_file=self.drop_zone.mcp_server_file,
+            permission_mode=self.drop_zone.permission_mode,
+            allowed_tools=self.drop_zone.allowed_tools,
+            disallowed_tools=self.drop_zone.disallowed_tools,
             zone_name=self.drop_zone.name,
             zone_color=self.drop_zone.color,
         )
@@ -537,6 +619,38 @@ class AgenticDropZone:
         self.config: Optional[DropsConfig] = None
         self.observers: list[Observer] = []
         self.base_path = Path.cwd()
+
+    def check_permission_security(self) -> None:
+        """Check permission configurations and display security warnings."""
+        if not self.config or not self.config.drop_zones:
+            return
+
+        risky_zones = []
+        unprotected_zones = []
+
+        for zone in self.config.drop_zones:
+            # Check for bypassPermissions without allowed_tools
+            if zone.permission_mode == "bypassPermissions":
+                if not zone.allowed_tools:
+                    risky_zones.append(zone.name)
+
+            # Check for missing allowed_tools
+            if not zone.allowed_tools:
+                unprotected_zones.append(zone.name)
+
+        if risky_zones:
+            console.print("\n[bold red]⚠️  Security Warning: Unrestricted Zones[/bold red]")
+            console.print("[red]The following zones use 'bypassPermissions' without tool restrictions:[/red]")
+            for name in risky_zones:
+                console.print(f"[dim]   - {name}[/dim]")
+            console.print("[yellow]Consider using 'default' mode with 'allowed_tools'[/yellow]\n")
+
+        if unprotected_zones:
+            console.print("\n[bold yellow]⚠️  Warning: Zones Without Tool Whitelist[/bold yellow]")
+            console.print("[yellow]The following zones have no 'allowed_tools' specified:[/yellow]")
+            for name in unprotected_zones:
+                console.print(f"[dim]   - {name}[/dim]")
+            console.print("[dim]These zones may prompt for permissions (non-automated)[/dim]\n")
 
     def load_config(self) -> None:
         """Load configuration from YAML file."""
@@ -556,6 +670,9 @@ class AgenticDropZone:
             console.print(
                 f"[cyan]   Found {len(self.config.drop_zones)} drop zone(s)[/cyan]"
             )
+
+            # Check permission security after loading config
+            self.check_permission_security()
         except FileNotFoundError:
             raise
         except Exception as e:

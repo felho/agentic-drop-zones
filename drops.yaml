@@ -6,6 +6,20 @@ drop_zones:
     events: ["created"] # Event types: created, modified, deleted, moved
     agent: "claude_code" # Agent type: claude_code, gemini_cli, codex_cli (default: claude_code)
     model: "haiku" # Model to use for Claude Code (default: sonnet)
+
+    # Permission configuration (enables non-interactive operation)
+    permission_mode: "default" # Recommended: default or acceptEdits (safer than bypassPermissions)
+
+    # Whitelist of allowed tools (required for non-interactive automation)
+    allowed_tools:
+      - "Read" # Read files
+      - "Bash(mv:*)" # Run bash mv commands
+
+    # Optional: Blacklist specific tools for extra protection
+    # disallowed_tools:
+    #   - "Task"      # Block sub-agent spawning
+    #   - "WebFetch"  # Block web access
+
     color: "cyan" # Color for console output (red, blue, green, cyan, yellow, magenta)
     # mcp_server_file: ".mcp.json" # Uncomment this to use MCP servers - don't bloat your context window if you don't need it
     create_zone_dir_if_not_exists: true # Auto-create non-glob directories if missing (default: false)
@@ -28,6 +42,19 @@ drop_zones:
   #   events: ["created"]
   #   agent: "claude_code"
   #   model: "sonnet"
+  #
+  #   # Permissions for API + file operations
+  #   permission_mode: "default"
+  #   allowed_tools:
+  #     - "Read"
+  #     - "Write"
+  #     - "Bash"
+  #     - "mcp__replicate__create_models_predictions"
+  #     - "mcp__replicate__get_predictions"
+  #   disallowed_tools:
+  #     - "Task"      # Block sub-agent spawning
+  #     - "WebFetch"  # Block general web access
+  #
   #   color: "blue"
   #   mcp_server_file: ".mcp.json"
   #   create_zone_dir_if_not_exists: true
@@ -61,6 +88,18 @@ drop_zones:
   #   events: ["created"]
   #   agent: "claude_code"
   #   model: "sonnet"
+  #
+  #   # File operations only (no network)
+  #   permission_mode: "default"
+  #   allowed_tools:
+  #     - "Read"
+  #     - "Write"
+  #     - "Bash"  # For data tools (awk, sed, head, tail, uv)
+  #   disallowed_tools:
+  #     - "WebFetch"
+  #     - "WebSearch"
+  #     - "Task"
+  #
   #   color: "magenta"
   #   create_zone_dir_if_not_exists: true
 
